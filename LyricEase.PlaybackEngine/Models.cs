@@ -18,7 +18,7 @@ namespace LyricEase.PlaybackEngine.Models
         string AlbumString { get; }
         TimeSpan Duration { get; }
         string AlbumCoverImageUrl { get; }
-        Task<MediaSource> GetAudioMediaSource();
+        Task<MediaSource> GetAudioMediaSource(SoundQuality soundQuality);
     }
 
     public sealed class PlaybackStatusChangedEventArgs
