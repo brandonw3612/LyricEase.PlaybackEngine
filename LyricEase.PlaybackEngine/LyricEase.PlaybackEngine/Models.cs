@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Media.Core;
 
 namespace LyricEase.PlaybackEngine.Models
 {
@@ -12,7 +13,12 @@ namespace LyricEase.PlaybackEngine.Models
 
     public interface ITrack
     {
-
+        string TitleString { get; }
+        string ArtistString { get; }
+        string AlbumString { get; }
+        TimeSpan Duration { get; }
+        string AlbumCoverImageUrl { get; }
+        Task<MediaSource> GetAudioMediaSource();
     }
 
     public sealed class PlaybackStatusChangedEventArgs
