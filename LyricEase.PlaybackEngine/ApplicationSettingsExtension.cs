@@ -14,9 +14,9 @@ namespace LyricEase.PlaybackEngine
 
         #region Settings Items
 
-        public static Models.PlaybackMode PlaybackMode
+        public static PlaybackMode PlaybackMode
         {
-            get => (Models.PlaybackMode)PlaybackModeProperty.GetValue();
+            get => (PlaybackMode)PlaybackModeProperty.GetValue();
             set => PlaybackModeProperty.SetValue((int)value);
         }
         private static readonly SettingProperty<int> PlaybackModeProperty = new(nameof(PlaybackMode), 0);

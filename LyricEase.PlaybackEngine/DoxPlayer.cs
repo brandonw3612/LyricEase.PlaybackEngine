@@ -9,10 +9,38 @@ namespace LyricEase.PlaybackEngine
 {
     internal sealed class DoxPlayer : IPlayer
     {
-        public double Volume { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public bool IsDirectSwitchEnabled { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public SoundQuality SoundQuality { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public PlaybackMode PlaybackMode { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public double Volume
+        {
+            get => ApplicationSettingsExtension.Volume;
+            set
+            {
+                ApplicationSettingsExtension.Volume = value;
+            }
+        }
+        public bool IsDirectSwitchEnabled
+        {
+            get => ApplicationSettingsExtension.IsDirectSwitchEnabled;
+            set
+            {
+                ApplicationSettingsExtension.IsDirectSwitchEnabled = value;
+            }
+        }
+        public SoundQuality SoundQuality
+        {
+            get => ApplicationSettingsExtension.SoundQuality;
+            set
+            {
+                ApplicationSettingsExtension.SoundQuality = value;
+            }
+        }
+        public PlaybackMode PlaybackMode
+        {
+            get => ApplicationSettingsExtension.PlaybackMode;
+            set
+            {
+                ApplicationSettingsExtension.PlaybackMode = value;
+            }
+        }
 
         public bool? IsPlaying => throw new NotImplementedException();
 
