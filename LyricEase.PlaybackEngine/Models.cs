@@ -13,6 +13,7 @@ namespace LyricEase.PlaybackEngine.Models
 
     public interface ITrack
     {
+        ulong TrackID { get; }
         string TitleString { get; }
         string ArtistString { get; }
         string AlbumString { get; }

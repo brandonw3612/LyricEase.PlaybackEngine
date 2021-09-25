@@ -4,11 +4,23 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Timers;
+using Windows.Media.Audio;
+using Windows.Media.Core;
 
 namespace LyricEase.PlaybackEngine
 {
     internal sealed class DoxPlayer : IPlayer
     {
+        private AudioGraph audioGraph;
+        private AudioDeviceOutputNode outputNode;
+        private List<TrackNode> trackNodes;
+
+        private TrackNode previousTrackNode;
+        private TrackNode currentTrackNode;
+        private TrackNode nextTrackNode;
+
+
         public double Volume
         {
             get => ApplicationSettingsExtension.Volume;
@@ -121,6 +133,19 @@ namespace LyricEase.PlaybackEngine
         public void Stop()
         {
             throw new NotImplementedException();
+        }
+
+        private sealed class TrackNode
+        {
+            public ITrack Track { get; set; }
+            public MediaSourceAudioInputNode Node;
+
+            // Judge if the track is longer than 60sec. 
+            public bool IsNodeAvailableForCrossfading => Track?.Duration.TotalSeconds > 60.0d;
+            /// <summary>
+            /// If user use methods like <see cref="Seek(TimeSpan)">Seek</see> in some scenarios we disable the crossfading
+            /// </summary>
+            public bool IsUserInterruptingCrossfading { get; set; } = false;
         }
     }
 }
