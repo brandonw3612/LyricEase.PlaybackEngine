@@ -24,6 +24,16 @@ namespace LyricEase.PlaybackEngine
         public DoxPlayer()
         {
             InitializeAudioGraph().Wait();
+
+            SMTC = SystemMediaTransportControls.GetForCurrentView();
+            SMTC.IsEnabled = false;
+            SMTC.IsPauseEnabled = true;
+            SMTC.ButtonPressed += SMTC_ButtonPressed;
+            SMTC.PlaybackPositionChangeRequested += SMTC_PlaybackPositionChangeRequested;
+
+            PlaybackPositionChanged += DoxPlayer_PlaybackPositionChanged;
+            PlaybackStatusChanged += DoxePlayer_PlaybackStatusChanged;
+            PlaybackQueueUpdated += DoxePlayer_PlaybackQueueUpdated;
         }
 
         #region AudioGraph and TrackNode Manipulations
@@ -85,6 +95,40 @@ namespace LyricEase.PlaybackEngine
         #endregion
 
         private readonly SystemMediaTransportControls SMTC;
+        private void SMTC_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
+        {
+            switch (args.Button)
+            {
+                case SystemMediaTransportControlsButton.Next: Next(); break;
+                case SystemMediaTransportControlsButton.Previous: Previous(); break;
+                case SystemMediaTransportControlsButton.Play: Play(); break;
+                case SystemMediaTransportControlsButton.Pause: Pause(); break;
+                default: break;
+            }
+        }
+
+        private void SMTC_PlaybackPositionChangeRequested(SystemMediaTransportControls sender, PlaybackPositionChangeRequestedEventArgs args)
+        {
+            Seek(args.RequestedPlaybackPosition);
+        }
+
+        //To be improved
+        private void DoxPlayer_PlaybackPositionChanged(object sender, PlaybackPositionChangedEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void DoxePlayer_PlaybackStatusChanged(object sender, PlaybackStatusChangedEventArgs e)
+        {
+            SMTC.PlaybackStatus = e.IsPlaying ? MediaPlaybackStatus.Playing : MediaPlaybackStatus.Paused;
+        }
+
+        //To be improved 
+        private void DoxePlayer_PlaybackQueueUpdated(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
         public double Volume
         {
             get => ApplicationSettingsExtension.Volume;
