@@ -20,6 +20,68 @@ namespace LyricEase.PlaybackEngine
         private TrackNode currentTrackNode;
         private TrackNode nextTrackNode;
 
+        public DoxPlayer()
+        {
+            InitializeAudioGraph().Wait();
+        }
+
+        #region AudioGraph and TrackNode Manipulations
+
+        private async Task InitializeAudioGraph()
+        {
+            AudioGraphSettings settings = new AudioGraphSettings(Windows.Media.Render.AudioRenderCategory.Media);
+
+            var createAudioGraphResult = await AudioGraph.CreateAsync(settings);
+            if (createAudioGraphResult.Status != AudioGraphCreationStatus.Success)
+            {
+                throw new Exception("AudioGraph creation error: " + createAudioGraphResult.Status.ToString());
+            }
+            audioGraph = createAudioGraphResult.Graph;
+
+            var createAudioDeviceOutputNodeResult = await audioGraph.CreateDeviceOutputNodeAsync();
+            if (createAudioDeviceOutputNodeResult.Status != AudioDeviceNodeCreationStatus.Success)
+            {
+                throw new Exception("AudioGraph configuration error: " + createAudioDeviceOutputNodeResult.Status.ToString());
+            }
+            outputNode = createAudioDeviceOutputNodeResult.DeviceOutputNode;
+
+            audioGraph.Start();
+        }
+
+        private async Task<TrackNode> CreateTrackNode(ITrack track)
+        {
+            if (audioGraph == null) throw new Exception("Audio graph not available.");
+
+            var mediaSource = await track.GetAudioMediaSource(SoundQuality);
+
+            var createNodeResult = await audioGraph.CreateMediaSourceAudioInputNodeAsync(mediaSource);
+
+            if (createNodeResult.Status != MediaSourceAudioInputNodeCreationStatus.Success)
+            {
+                throw new Exception("Audio node creation error: " + createNodeResult.Status.ToString());
+            }
+
+            TrackNode node = new() { Node = createNodeResult.Node, Track = track };
+            // make sure the node does not start automatically
+            node.Node.Stop();
+            node.Node.Reset();
+            node.Node.AddOutgoingConnection(outputNode);
+
+            return node;
+        }
+
+        private void RemoveTrackNode(TrackNode trackNode)
+        {
+            if (!trackNodes.Contains(trackNode)) return;
+
+            trackNode.Node.Stop();
+            trackNode.Node.RemoveOutgoingConnection(outputNode);
+            trackNode.Node.Dispose();
+
+            trackNodes.Remove(trackNode);
+        }
+
+        #endregion
 
         public double Volume
         {
