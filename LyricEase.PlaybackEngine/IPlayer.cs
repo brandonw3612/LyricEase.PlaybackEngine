@@ -19,14 +19,14 @@ namespace LyricEase.PlaybackEngine
         ITrack CurrentItem { get; }
 
         bool IsPreviousItemAvailable { get; }
-        bool IsNextItemAvailable { get; }
+        bool? IsNextItemAvailable { get; }
 
         List<ITrack> OriginalPlaybackList { get; }
         Stack<ITrack> UpNextPlaybackStack { get; }
         List<int> PlaybackOrder { get; }
         List<ITrack> NextPlayingQueue { get; }
         
-        void PlayList(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource);
+        void PlayCollection(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource);
         void AddToUpNext(IEnumerable<ITrack> Items);
         void Previous();
         void Next();

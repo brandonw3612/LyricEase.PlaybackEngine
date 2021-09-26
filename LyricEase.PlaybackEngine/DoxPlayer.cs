@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
+using Windows.Media;
 using Windows.Media.Audio;
 using Windows.Media.Core;
 
@@ -83,6 +84,7 @@ namespace LyricEase.PlaybackEngine
 
         #endregion
 
+        private readonly SystemMediaTransportControls SMTC;
         public double Volume
         {
             get => ApplicationSettingsExtension.Volume;
@@ -116,19 +118,26 @@ namespace LyricEase.PlaybackEngine
             }
         }
 
-        public bool? IsPlaying => throw new NotImplementedException();
+        public bool? IsPlaying { get; set; }
 
-        public object PlaybackSource => throw new NotImplementedException();
+        public object PlaybackSource
+        {
+            get => PlaybackSource;
+            set
+            {
+                PlaybackSource = value;
+            }
+        }
 
         public ITrack CurrentItem => throw new NotImplementedException();
 
         public bool IsPreviousItemAvailable => throw new NotImplementedException();
 
-        public bool IsNextItemAvailable => throw new NotImplementedException();
+        public bool? IsNextItemAvailable { get; set; }
 
-        public List<ITrack> OriginalPlaybackList => throw new NotImplementedException();
+        public List<ITrack> OriginalPlaybackList { get; set; }
 
-        public Stack<ITrack> UpNextPlaybackStack => throw new NotImplementedException();
+        public Stack<ITrack> UpNextPlaybackStack { get; set; }
 
         public List<int> PlaybackOrder => throw new NotImplementedException();
 
@@ -162,9 +171,38 @@ namespace LyricEase.PlaybackEngine
             throw new NotImplementedException();
         }
 
-        public void PlayList(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource)
+        public async void PlayCollection(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource)
         {
-            throw new NotImplementedException();
+            //Release previousTrackNode,currentTrackNode,nextTrackNode;
+            if (previousTrackNode is not null) RemoveTrackNode(previousTrackNode);
+            if (currentTrackNode is not null) RemoveTrackNode(currentTrackNode);
+            if (nextTrackNode is not null) RemoveTrackNode(nextTrackNode);
+
+            if (Items?.Count() <= 0) return;
+            Stop();
+            this.PlaybackSource = PlaybackSource;
+
+            UpNextPlaybackStack = new Stack<ITrack>();
+            OriginalPlaybackList = Items.ToList();
+
+            int FirstItemIndex;
+            if (StartingItem == null) FirstItemIndex = 0;
+            else
+            {
+                int OriginalItemIndex = OriginalPlaybackList.IndexOf(StartingItem);
+                if (PlaybackMode == PlaybackMode.Shuffle) FirstItemIndex = PlaybackOrder.IndexOf(OriginalItemIndex);
+                else FirstItemIndex = OriginalItemIndex; 
+            }
+            TrackNode firstTrackNode = await CreateTrackNode(OriginalPlaybackList[PlaybackOrder[FirstItemIndex]]);
+
+            currentTrackNode = firstTrackNode;
+            currentTrackNode.Node.Start();
+            IsPlaying = true;
+            //Timer.Start()?
+
+            IsNextItemAvailable = null;
+            PlaybackQueueUpdated?.Invoke(this, null);
+            CurrentlyPlayingItemChanged?.Invoke(this, new CurrentlyPlayingItemChangedEventArgs { CurrentTrack = CurrentItem}); 
         }
 
         public void PlayPause()
