@@ -15,11 +15,12 @@ namespace LyricEase.PlaybackEngine
     {
         private AudioGraph audioGraph;
         private AudioDeviceOutputNode outputNode;
-        private List<TrackNode> trackNodes;
 
         private TrackNode previousTrackNode;
         private TrackNode currentTrackNode;
         private TrackNode nextTrackNode;
+
+        private readonly SystemMediaTransportControls SMTC;
 
         public DoxPlayer()
         {
@@ -29,7 +30,7 @@ namespace LyricEase.PlaybackEngine
             SMTC.IsEnabled = false;
             SMTC.IsPauseEnabled = true;
             SMTC.ButtonPressed += SMTC_ButtonPressed;
-            SMTC.PlaybackPositionChangeRequested += SMTC_PlaybackPositionChangeRequested;
+            SMTC.PlaybackPositionChangeRequested += (_, args) => Seek(args.RequestedPlaybackPosition);
 
             PlaybackPositionChanged += DoxPlayer_PlaybackPositionChanged;
             PlaybackStatusChanged += DoxePlayer_PlaybackStatusChanged;
@@ -83,18 +84,13 @@ namespace LyricEase.PlaybackEngine
 
         private void RemoveTrackNode(TrackNode trackNode)
         {
-            if (!trackNodes.Contains(trackNode)) return;
-
             trackNode.Node.Stop();
             trackNode.Node.RemoveOutgoingConnection(outputNode);
             trackNode.Node.Dispose();
-
-            trackNodes.Remove(trackNode);
         }
 
         #endregion
 
-        private readonly SystemMediaTransportControls SMTC;
         private void SMTC_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
         {
             switch (args.Button)
@@ -107,12 +103,6 @@ namespace LyricEase.PlaybackEngine
             }
         }
 
-        private void SMTC_PlaybackPositionChangeRequested(SystemMediaTransportControls sender, PlaybackPositionChangeRequestedEventArgs args)
-        {
-            Seek(args.RequestedPlaybackPosition);
-        }
-
-        //To be improved
         private void DoxPlayer_PlaybackPositionChanged(object sender, PlaybackPositionChangedEventArgs e)
         {
             throw new NotImplementedException();
@@ -123,7 +113,6 @@ namespace LyricEase.PlaybackEngine
             SMTC.PlaybackStatus = e.IsPlaying ? MediaPlaybackStatus.Playing : MediaPlaybackStatus.Paused;
         }
 
-        //To be improved 
         private void DoxePlayer_PlaybackQueueUpdated(object sender, EventArgs e)
         {
             throw new NotImplementedException();
@@ -183,7 +172,7 @@ namespace LyricEase.PlaybackEngine
 
         public Stack<ITrack> UpNextPlaybackStack { get; set; }
 
-        public List<int> PlaybackOrder => throw new NotImplementedException();
+        public List<int> PlaybackOrder { get; private set; }
 
         public List<ITrack> NextPlayingQueue => throw new NotImplementedException();
 
@@ -228,6 +217,10 @@ namespace LyricEase.PlaybackEngine
 
             UpNextPlaybackStack = new Stack<ITrack>();
             OriginalPlaybackList = Items.ToList();
+
+            PlaybackOrder = PlaybackMode == PlaybackMode.Shuffle ?
+                Methods.GenerateShuffledSequence(Items.Count()) :
+                Methods.GenerateAscendingSequence(Items.Count());
 
             int FirstItemIndex;
             if (StartingItem == null) FirstItemIndex = 0;

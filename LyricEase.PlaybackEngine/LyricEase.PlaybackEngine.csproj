@@ -126,6 +126,7 @@
     <Compile Include="ApplicationSettingsExtension.cs" />
     <Compile Include="DoxPlayer.cs" />
     <Compile Include="IPlayer.cs" />
+    <Compile Include="Methods.cs" />
     <Compile Include="Models.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\LyricEase.PlaybackEngine.rd.xml" />
