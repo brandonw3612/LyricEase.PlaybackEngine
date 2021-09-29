@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Timers;
 using Windows.Media;
 using Windows.Media.Audio;
 using Windows.Media.Core;
@@ -15,6 +14,8 @@ namespace LyricEase.PlaybackEngine
     {
         private AudioGraph audioGraph;
         private AudioDeviceOutputNode outputNode;
+        private System.Timers.Timer graphMonitor;
+        private const double graphMonitorInterval = 50.0d; 
 
         private TrackNode previousTrackNode;
         private TrackNode currentTrackNode;
@@ -58,6 +59,9 @@ namespace LyricEase.PlaybackEngine
             outputNode = createAudioDeviceOutputNodeResult.DeviceOutputNode;
 
             audioGraph.Start();
+
+            graphMonitor = new() { AutoReset = true, Interval = graphMonitorInterval };
+            graphMonitor.Elapsed += (_1, _2) => OnGraphTimelineUpdated();
         }
 
         private async Task<TrackNode> CreateTrackNode(ITrack track)
@@ -90,6 +94,11 @@ namespace LyricEase.PlaybackEngine
         }
 
         #endregion
+
+        private void OnGraphTimelineUpdated()
+        {
+            throw new NotImplementedException();
+        }
 
         private void SMTC_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
         {
@@ -153,14 +162,7 @@ namespace LyricEase.PlaybackEngine
 
         public bool? IsPlaying { get; set; }
 
-        public object PlaybackSource
-        {
-            get => PlaybackSource;
-            set
-            {
-                PlaybackSource = value;
-            }
-        }
+        public object PlaybackSource { get; private set; }
 
         public ITrack CurrentItem => throw new NotImplementedException();
 
@@ -235,7 +237,7 @@ namespace LyricEase.PlaybackEngine
             currentTrackNode = firstTrackNode;
             currentTrackNode.Node.Start();
             IsPlaying = true;
-            //Timer.Start()?
+            graphMonitor.Start();
 
             IsNextItemAvailable = null;
             PlaybackQueueUpdated?.Invoke(this, null);
