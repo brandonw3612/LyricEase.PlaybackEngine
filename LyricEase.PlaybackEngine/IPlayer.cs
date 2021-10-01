@@ -35,8 +35,8 @@ namespace LyricEase.PlaybackEngine
         void PlayPause();
         void Stop();
         void Seek(TimeSpan TargetPosition);
-        void SkipToIndex(bool IsMainPlaybackQueue, int TargetItemIndex);
-        void RemoveItem(bool IsMainPlaybackQueue, int TargetItemIndex);
+        void SkipTo(ITrack targetTrack);
+        void Remove(ITrack targetTrack);
         
         event EventHandler<PlaybackStatusChangedEventArgs> PlaybackStatusChanged;
         event EventHandler<EventArgs> PlaybackModeChanged;

@@ -170,11 +170,11 @@ namespace LyricEase.PlaybackEngine
 
         public bool? IsNextItemAvailable { get; set; }
 
-        public List<ITrack> OriginalPlaybackList { get; set; }
+        public List<ITrack> OriginalPlaybackList { get; set; } = new();
 
-        public Stack<ITrack> UpNextPlaybackStack { get; set; }
+        public Stack<ITrack> UpNextPlaybackStack { get; set; } = new();
 
-        public List<int> PlaybackOrder { get; private set; }
+        public List<int> PlaybackOrder { get; private set; } = new();
 
         public List<ITrack> NextPlayingQueue => throw new NotImplementedException();
 
@@ -188,7 +188,14 @@ namespace LyricEase.PlaybackEngine
 
         public void AddToUpNext(IEnumerable<ITrack> Items)
         {
-            throw new NotImplementedException();
+            // Need remaking
+            if (Items?.Count() <= 0) return;
+            foreach (ITrack track in Items.Reverse())
+            {
+                if (UpNextPlaybackStack.Contains(track) || OriginalPlaybackList.Contains(track)) continue;
+                UpNextPlaybackStack.Push(track);
+            }
+            PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void Next()
@@ -217,7 +224,7 @@ namespace LyricEase.PlaybackEngine
             Stop();
             this.PlaybackSource = PlaybackSource;
 
-            UpNextPlaybackStack = new Stack<ITrack>();
+            UpNextPlaybackStack = new();
             OriginalPlaybackList = Items.ToList();
 
             PlaybackOrder = PlaybackMode == PlaybackMode.Shuffle ?
@@ -254,9 +261,20 @@ namespace LyricEase.PlaybackEngine
             throw new NotImplementedException();
         }
 
-        public void RemoveItem(bool IsMainPlaybackQueue, int TargetItemIndex)
+        public void Remove(ITrack targetTrack)
         {
-            throw new NotImplementedException();
+            if (UpNextPlaybackStack.Contains(targetTrack))
+            {
+                //Need adjustment
+            }
+            else if (OriginalPlaybackList.Contains(targetTrack))
+            {
+                int index = OriginalPlaybackList.IndexOf(targetTrack);
+                int order = PlaybackOrder.IndexOf(index);
+                PlaybackOrder.RemoveAt(order);
+                for (int i = 0; i < PlaybackOrder.Count; i++)
+                    if (PlaybackOrder[i] > order) PlaybackOrder[i]--;
+            }
         }
 
         public void Seek(TimeSpan TargetPosition)
@@ -264,9 +282,18 @@ namespace LyricEase.PlaybackEngine
             throw new NotImplementedException();
         }
 
-        public void SkipToIndex(bool IsMainPlaybackQueue, int TargetItemIndex)
+        public void SkipTo(ITrack targetTrack)
         {
-            throw new NotImplementedException();
+            if (UpNextPlaybackStack.Contains(targetTrack))
+            {
+                while (UpNextPlaybackStack.Peek() != targetTrack)
+                {
+                    _ = UpNextPlaybackStack.Pop();
+                }
+
+                // Stack top element (future discussion)
+
+            }
         }
 
         public void Stop()
