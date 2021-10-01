@@ -23,5 +23,9 @@ namespace LyricEase.PlaybackEngine
             seq.Sort((_1, _2) => (_random.NextDouble() - 0.5d).CompareTo(0d));
             return seq;
         }
+
+        internal static int GetPreviousIndex(int CurrentIndex, int CollectionLength) => (CurrentIndex - 1 + CollectionLength) % CollectionLength;
+
+        internal static int GetNextIndex(int CurrentIndex, int CollectionLength) => (CurrentIndex + 1) % CollectionLength;
     }
 }

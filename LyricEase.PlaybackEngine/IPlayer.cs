@@ -18,11 +18,8 @@ namespace LyricEase.PlaybackEngine
         object PlaybackSource { get; }
         ITrack CurrentItem { get; }
 
-        bool IsPreviousItemAvailable { get; }
-        bool? IsNextItemAvailable { get; }
-
         List<ITrack> OriginalPlaybackList { get; }
-        Stack<ITrack> UpNextPlaybackStack { get; }
+        List<ITrack> UpNextPlaybackList { get; }
         List<int> PlaybackOrder { get; }
         List<ITrack> NextPlayingQueue { get; }
         
@@ -36,7 +33,7 @@ namespace LyricEase.PlaybackEngine
         void Stop();
         void Seek(TimeSpan TargetPosition);
         void SkipTo(ITrack targetTrack);
-        void Remove(ITrack targetTrack);
+        void RemoveTrack(ITrack targetTrack);
         
         event EventHandler<PlaybackStatusChangedEventArgs> PlaybackStatusChanged;
         event EventHandler<EventArgs> PlaybackModeChanged;

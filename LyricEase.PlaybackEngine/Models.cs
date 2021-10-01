@@ -25,8 +25,6 @@ namespace LyricEase.PlaybackEngine.Models
     public sealed class PlaybackStatusChangedEventArgs
     {
         public bool IsPlaying { get; set; }
-        public bool PreviousAvailable { get; set; }
-        public bool NextAvailable { get; set; }
     }
 
     public sealed class PlaybackPositionChangedEventArgs

@@ -21,7 +21,69 @@ namespace LyricEase.PlaybackEngine
         private TrackNode currentTrackNode;
         private TrackNode nextTrackNode;
 
+        private int previousItemIndex = -1;
+        private int currentItemIndex = -1;
+
         private readonly SystemMediaTransportControls SMTC;
+
+        #region Settings properties
+
+        public double Volume
+        {
+            get => ApplicationSettingsExtension.Volume;
+            set
+            {
+                ApplicationSettingsExtension.Volume = value;
+            }
+        }
+        public bool IsDirectSwitchEnabled
+        {
+            get => ApplicationSettingsExtension.IsDirectSwitchEnabled;
+            set
+            {
+                ApplicationSettingsExtension.IsDirectSwitchEnabled = value;
+            }
+        }
+        public SoundQuality SoundQuality
+        {
+            get => ApplicationSettingsExtension.SoundQuality;
+            set
+            {
+                ApplicationSettingsExtension.SoundQuality = value;
+            }
+        }
+        public PlaybackMode PlaybackMode
+        {
+            get => ApplicationSettingsExtension.PlaybackMode;
+            set
+            {
+                ApplicationSettingsExtension.PlaybackMode = value;
+            }
+        }
+
+        #endregion
+
+        public bool? IsPlaying { get; set; }
+
+        public object PlaybackSource { get; private set; }
+
+        public ITrack CurrentItem { get => currentTrackNode?.Track; }
+
+        public List<ITrack> OriginalPlaybackList { get; set; } = new();
+
+        public List<ITrack> UpNextPlaybackList { get; set; } = new();
+
+        public List<int> PlaybackOrder { get; private set; } = new();
+
+        public List<ITrack> NextPlayingQueue => throw new NotImplementedException();
+
+        public event EventHandler<PlaybackStatusChangedEventArgs> PlaybackStatusChanged;
+        public event EventHandler<EventArgs> PlaybackModeChanged;
+        public event EventHandler<PlaybackPositionChangedEventArgs> PlaybackPositionChanged;
+        public event EventHandler<CurrentlyPlayingItemChangedEventArgs> CurrentlyPlayingItemChanged;
+        public event EventHandler PlaybackQueueUpdated;
+        public event EventHandler PlaybackEnded;
+        public event EventHandler<PlaybackErrorEventArgs> PlaybackError;
 
         public DoxPlayer()
         {
@@ -86,7 +148,7 @@ namespace LyricEase.PlaybackEngine
             return node;
         }
 
-        private void RemoveTrackNode(TrackNode trackNode)
+        private void DisposeTrackNode(TrackNode trackNode)
         {
             trackNode.Node.Stop();
             trackNode.Node.RemoveOutgoingConnection(outputNode);
@@ -127,73 +189,14 @@ namespace LyricEase.PlaybackEngine
             throw new NotImplementedException();
         }
 
-        public double Volume
-        {
-            get => ApplicationSettingsExtension.Volume;
-            set
-            {
-                ApplicationSettingsExtension.Volume = value;
-            }
-        }
-        public bool IsDirectSwitchEnabled
-        {
-            get => ApplicationSettingsExtension.IsDirectSwitchEnabled;
-            set
-            {
-                ApplicationSettingsExtension.IsDirectSwitchEnabled = value;
-            }
-        }
-        public SoundQuality SoundQuality
-        {
-            get => ApplicationSettingsExtension.SoundQuality;
-            set
-            {
-                ApplicationSettingsExtension.SoundQuality = value;
-            }
-        }
-        public PlaybackMode PlaybackMode
-        {
-            get => ApplicationSettingsExtension.PlaybackMode;
-            set
-            {
-                ApplicationSettingsExtension.PlaybackMode = value;
-            }
-        }
-
-        public bool? IsPlaying { get; set; }
-
-        public object PlaybackSource { get; private set; }
-
-        public ITrack CurrentItem { get => currentTrackNode?.Track; }
-
-        public bool IsPreviousItemAvailable => throw new NotImplementedException();
-
-        public bool? IsNextItemAvailable { get; set; }
-
-        public List<ITrack> OriginalPlaybackList { get; set; } = new();
-
-        public Stack<ITrack> UpNextPlaybackStack { get; set; } = new();
-
-        public List<int> PlaybackOrder { get; private set; } = new();
-
-        public List<ITrack> NextPlayingQueue => throw new NotImplementedException();
-
-        public event EventHandler<PlaybackStatusChangedEventArgs> PlaybackStatusChanged;
-        public event EventHandler<EventArgs> PlaybackModeChanged;
-        public event EventHandler<PlaybackPositionChangedEventArgs> PlaybackPositionChanged;
-        public event EventHandler<CurrentlyPlayingItemChangedEventArgs> CurrentlyPlayingItemChanged;
-        public event EventHandler PlaybackQueueUpdated;
-        public event EventHandler PlaybackEnded;
-        public event EventHandler<PlaybackErrorEventArgs> PlaybackError;
-
         public void AddToUpNext(IEnumerable<ITrack> Items)
         {
-            // Need remaking
             if (Items?.Count() <= 0) return;
             foreach (ITrack track in Items.Reverse())
             {
-                if (UpNextPlaybackStack.Contains(track) || OriginalPlaybackList.Contains(track)) continue;
-                UpNextPlaybackStack.Push(track);
+                if (UpNextPlaybackList.Contains(track))
+                    UpNextPlaybackList.Remove(track);
+                UpNextPlaybackList.Insert(0, track);
             }
             PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty);
         }
@@ -206,7 +209,7 @@ namespace LyricEase.PlaybackEngine
         public void Pause()
         {
             currentTrackNode.Node.Stop();
-            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == true, NextAvailable = IsNextItemAvailable == true, PreviousAvailable = IsPreviousItemAvailable });
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == false });
             graphMonitor.Stop();
 
         }
@@ -214,22 +217,22 @@ namespace LyricEase.PlaybackEngine
         public void Play()
         {
             currentTrackNode.Node.Start();
-            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == true, NextAvailable = IsNextItemAvailable == true, PreviousAvailable = IsPreviousItemAvailable });
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == true });
             graphMonitor.Start();
         }
 
         public async void PlayCollection(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource)
         {
             //Release previousTrackNode,currentTrackNode,nextTrackNode;
-            if (previousTrackNode is not null) RemoveTrackNode(previousTrackNode);
-            if (currentTrackNode is not null) RemoveTrackNode(currentTrackNode);
-            if (nextTrackNode is not null) RemoveTrackNode(nextTrackNode);
+            if (previousTrackNode is not null) DisposeTrackNode(previousTrackNode);
+            if (currentTrackNode is not null) DisposeTrackNode(currentTrackNode);
+            if (nextTrackNode is not null) DisposeTrackNode(nextTrackNode);
 
             if (Items?.Count() <= 0) return;
             Stop();
             this.PlaybackSource = PlaybackSource;
 
-            UpNextPlaybackStack = new();
+            UpNextPlaybackList = new();
             OriginalPlaybackList = Items.ToList();
 
             PlaybackOrder = PlaybackMode == PlaybackMode.Shuffle ?
@@ -244,14 +247,12 @@ namespace LyricEase.PlaybackEngine
                 if (PlaybackMode == PlaybackMode.Shuffle) FirstItemIndex = PlaybackOrder.IndexOf(OriginalItemIndex);
                 else FirstItemIndex = OriginalItemIndex; 
             }
-            TrackNode firstTrackNode = await CreateTrackNode(OriginalPlaybackList[PlaybackOrder[FirstItemIndex]]);
 
-            currentTrackNode = firstTrackNode;
+            currentTrackNode = await CreateTrackNode(OriginalPlaybackList[PlaybackOrder[FirstItemIndex]]);
             currentTrackNode.Node.Start();
             IsPlaying = true;
             graphMonitor.Start();
 
-            IsNextItemAvailable = null;
             PlaybackQueueUpdated?.Invoke(this, null);
             CurrentlyPlayingItemChanged?.Invoke(this, new CurrentlyPlayingItemChangedEventArgs { CurrentTrack = CurrentItem}); 
         }
@@ -269,11 +270,13 @@ namespace LyricEase.PlaybackEngine
             throw new NotImplementedException();
         }
 
-        public void Remove(ITrack targetTrack)
+        public void RemoveTrack(ITrack targetTrack)
         {
-            if (UpNextPlaybackStack.Contains(targetTrack))
+            bool changed = false;
+            if (UpNextPlaybackList.Contains(targetTrack))
             {
-                //Need adjustment
+                UpNextPlaybackList.Remove(targetTrack);
+                changed = true;
             }
             else if (OriginalPlaybackList.Contains(targetTrack))
             {
@@ -282,7 +285,9 @@ namespace LyricEase.PlaybackEngine
                 PlaybackOrder.RemoveAt(order);
                 for (int i = 0; i < PlaybackOrder.Count; i++)
                     if (PlaybackOrder[i] > order) PlaybackOrder[i]--;
+                changed = true;
             }
+            if (changed) PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void Seek(TimeSpan TargetPosition)
@@ -290,17 +295,45 @@ namespace LyricEase.PlaybackEngine
             throw new NotImplementedException();
         }
 
-        public void SkipTo(ITrack targetTrack)
+        public async void SkipTo(ITrack targetTrack)
         {
-            if (UpNextPlaybackStack.Contains(targetTrack))
+            if (UpNextPlaybackList.Contains(targetTrack))
             {
-                while (UpNextPlaybackStack.Peek() != targetTrack)
+                int index = UpNextPlaybackList.IndexOf(targetTrack);
+                if (index > 0) UpNextPlaybackList.RemoveRange(0, index);
+                PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty); // Remove?
+                Next();
+            }
+            else if (OriginalPlaybackList.Contains(targetTrack))
+            {
+                UpNextPlaybackList.Clear();
+                int index = OriginalPlaybackList.IndexOf(targetTrack);
+                int order = PlaybackOrder.IndexOf(index);
+                graphMonitor.Stop();
+
+                if (previousTrackNode is not null)
                 {
-                    _ = UpNextPlaybackStack.Pop();
+                    DisposeTrackNode(previousTrackNode);
+                    previousTrackNode = null;
+                }
+                if (currentTrackNode is not null)
+                {
+                    DisposeTrackNode(currentTrackNode);
+                    currentTrackNode = null;
+                }
+                if (nextTrackNode is not null)
+                {
+                    DisposeTrackNode(nextTrackNode);
+                    nextTrackNode = null;
                 }
 
-                // Stack top element (future discussion)
+                currentTrackNode = await CreateTrackNode(targetTrack);
+                currentTrackNode.Node.Start();
+                IsPlaying = true;
+                graphMonitor.Start();
 
+                PlaybackQueueUpdated?.Invoke(this, null);
+                CurrentlyPlayingItemChanged?.Invoke(this, new CurrentlyPlayingItemChangedEventArgs { CurrentTrack = CurrentItem });
             }
         }
 
