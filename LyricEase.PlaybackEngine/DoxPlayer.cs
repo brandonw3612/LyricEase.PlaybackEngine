@@ -164,7 +164,7 @@ namespace LyricEase.PlaybackEngine
 
         public object PlaybackSource { get; private set; }
 
-        public ITrack CurrentItem => throw new NotImplementedException();
+        public ITrack CurrentItem { get => currentTrackNode?.Track; }
 
         public bool IsPreviousItemAvailable => throw new NotImplementedException();
 
@@ -205,12 +205,17 @@ namespace LyricEase.PlaybackEngine
 
         public void Pause()
         {
-            throw new NotImplementedException();
+            currentTrackNode.Node.Stop();
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == true, NextAvailable = IsNextItemAvailable == true, PreviousAvailable = IsPreviousItemAvailable });
+            graphMonitor.Stop();
+
         }
 
         public void Play()
         {
-            throw new NotImplementedException();
+            currentTrackNode.Node.Start();
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == true, NextAvailable = IsNextItemAvailable == true, PreviousAvailable = IsPreviousItemAvailable });
+            graphMonitor.Start();
         }
 
         public async void PlayCollection(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource)
@@ -253,7 +258,10 @@ namespace LyricEase.PlaybackEngine
 
         public void PlayPause()
         {
-            throw new NotImplementedException();
+            if (IsPlaying ==false)
+                Play();
+            else if (IsPlaying == true)
+                Pause();
         }
 
         public void Previous()
