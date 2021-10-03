@@ -11,7 +11,7 @@ namespace LyricEase.PlaybackEngine.Models
 
     public enum PlaybackMode { RepeatAll, RepeatOne, Shuffle }
 
-    public enum NodeStatus { Unavailable, Preparing, Available }
+    public enum NodeStatus { Unavailable, Preparing, Available, Failed }
 
     public interface ITrack
     {

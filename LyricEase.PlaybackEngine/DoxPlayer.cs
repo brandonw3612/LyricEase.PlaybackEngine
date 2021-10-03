@@ -15,7 +15,9 @@ namespace LyricEase.PlaybackEngine
         private AudioGraph audioGraph;
         private AudioDeviceOutputNode outputNode;
         private System.Timers.Timer graphMonitor;
-        private const double graphMonitorInterval = 50.0d; 
+        private const double graphMonitorInterval = 50.0d;
+
+        private System.Timers.Timer resourceReloadTimer;
 
         private TrackNode previousTrackNode;
         private TrackNode currentTrackNode;
@@ -160,7 +162,49 @@ namespace LyricEase.PlaybackEngine
 
         private void OnGraphTimelineUpdated()
         {
-            throw new NotImplementedException();
+            if (currentTrackNode is null) return;
+            TimeSpan currentPosition = currentTrackNode.Node.Position;
+            TimeSpan duration = currentTrackNode.Node.Duration;
+            if ((duration - currentPosition).TotalSeconds < 60.0d)
+            {
+                if (nextTrackNodeStatus == NodeStatus.Unavailable)
+                {
+                    PrepareNextNode();
+                }
+            }
+        }
+
+        private async void PrepareNextNode(int retryTime = 0)
+        {
+            if (retryTime >= 3)
+            {
+                nextTrackNodeStatus = NodeStatus.Failed;
+                return;
+            }
+            try
+            {
+                nextTrackNodeStatus = NodeStatus.Preparing;
+                ITrack nextTrack;
+                if (UpNextPlaybackList?.Count > 0)
+                {
+                    nextTrack = UpNextPlaybackList[0];
+                    UpNextPlaybackList.RemoveAt(0);
+                }
+                else
+                {
+                    int nextIndex = Methods.GetNextIndex(
+                        currentItemIndex == -1 ? previousItemIndex : currentItemIndex,
+                        OriginalPlaybackList.Count);
+                    nextTrack = OriginalPlaybackList[PlaybackOrder[nextIndex]];
+                }
+                nextTrackNode = await CreateTrackNode(nextTrack);
+            }
+            catch
+            {
+                if (resourceReloadTimer is not null) resourceReloadTimer.Dispose();
+                resourceReloadTimer = new() { AutoReset = false, Interval = 3000 };
+                resourceReloadTimer.Elapsed += (_1, _2) => PrepareNextNode(retryTime + 1);
+            }
         }
 
         private void SMTC_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
