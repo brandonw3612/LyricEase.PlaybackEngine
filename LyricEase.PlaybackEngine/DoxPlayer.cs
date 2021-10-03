@@ -63,6 +63,22 @@ namespace LyricEase.PlaybackEngine
                 ApplicationSettingsExtension.PlaybackMode = value;
             }
         }
+        public bool IsAudioCrossfadingEnabled
+        {
+            get => ApplicationSettingsExtension.IsAudioCrossfadingEnabled;
+            set
+            {
+                ApplicationSettingsExtension.IsAudioCrossfadingEnabled = value;
+            }
+        }
+        public int AudioCrossfadingLength
+        {
+            get => ApplicationSettingsExtension.AudioCrossfadingLength;
+            set
+            {
+                ApplicationSettingsExtension.AudioCrossfadingLength = value;
+            }
+        }
 
         #endregion
 
@@ -172,6 +188,7 @@ namespace LyricEase.PlaybackEngine
                     PrepareNextNode();
                 }
             }
+
         }
 
         private async void PrepareNextNode(int retryTime = 0)

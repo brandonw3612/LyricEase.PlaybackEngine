@@ -11,6 +11,8 @@ namespace LyricEase.PlaybackEngine
     {
         double Volume { get; set; }
         bool IsDirectSwitchEnabled { get; set; }
+        bool IsAudioCrossfadingEnabled { get; set; }
+        int AudioCrossfadingLength { get; set; }
         SoundQuality SoundQuality { get; set; }
         PlaybackMode PlaybackMode { get; set; }
 

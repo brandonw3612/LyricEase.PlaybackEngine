@@ -42,6 +42,19 @@ namespace LyricEase.PlaybackEngine
         }
         private static readonly SettingProperty<bool> IsDirectSwitchEnabledProperty = new(nameof(IsDirectSwitchEnabled), false);
 
+        public static bool IsAudioCrossfadingEnabled
+        {
+            get => IsAudioCrossfadingEnabledProperty.GetValue();
+            set => IsAudioCrossfadingEnabledProperty.SetValue(value);
+        }
+        private static readonly SettingProperty<bool> IsAudioCrossfadingEnabledProperty = new(nameof(IsAudioCrossfadingEnabled), true);
+        
+        public static int AudioCrossfadingLength
+        {
+            get => AudioCrossfadingLengthProperty.GetValue();
+            set => AudioCrossfadingLengthProperty.SetValue(value);
+        }
+        private static readonly SettingProperty<int> AudioCrossfadingLengthProperty = new(nameof(AudioCrossfadingLength), 6);
         #endregion
 
         private sealed class SettingProperty<T>
