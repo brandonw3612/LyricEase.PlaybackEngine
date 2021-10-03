@@ -20,6 +20,7 @@ namespace LyricEase.PlaybackEngine
         private TrackNode previousTrackNode;
         private TrackNode currentTrackNode;
         private TrackNode nextTrackNode;
+        private NodeStatus nextTrackNodeStatus = NodeStatus.Unavailable;
 
         private int previousItemIndex = -1;
         private int currentItemIndex = -1;
