@@ -415,66 +415,66 @@ namespace LyricEase.PlaybackEngine
         public async void Next()
         {
             if (graphMonitor.Enabled) graphMonitor.Stop();
-            if (isInCrossfasingPhase == true)
+            if (isInCrossfasingPhase == true) LeaveCrossfadingPhase();
+            int nextIndex = 0;
+            if (nextTrackNodeStatus == NodeStatus.Available) nextIndex = preparedItemIndex;
+            else
             {
-                isInCrossfasingPhase = false;
-                crossfadingTimer.Stop();
-                previousTrackNode.Node.Stop();
-                currentTrackNode.Node.Stop();
-            }
-            ITrack nextTrack = UpNextPlaybackList?.Count > 0 ? UpNextPlaybackList[0] :
-                OriginalPlaybackList[PlaybackOrder[
-                Methods.GetNextIndex(currentItemIndex == -1 ? previousItemIndex : currentItemIndex,
-                    OriginalPlaybackList.Count)
-                ]];
-            if (nextTrackNode is null || nextTrackNode.Track != nextTrack)
-            {
+                nextIndex = UpNextPlaybackList?.Count > 0 ? -1 :
+                    Methods.GetNextIndex(currentItemIndex == -1 ? previousItemIndex : currentItemIndex,
+                        OriginalPlaybackList.Count);
+                ITrack nextTrack = nextIndex == -1 ? UpNextPlaybackList[0] :
+                    OriginalPlaybackList[PlaybackOrder[nextIndex]];
                 if (nextTrackNode is not null) DisposeTrackNode(nextTrackNode);
                 nextTrackNode = await CreateTrackNode(nextTrack);
+                if (nextIndex == -1) UpNextPlaybackList.RemoveAt(0);
             }
-            if (previousTrackNode is not null)
+
+            if (previousTrackNode?.Track != OriginalPlaybackList[PlaybackOrder[previousItemIndex]])
             {
                 DisposeTrackNode(previousTrackNode);
+                previousTrackNode = null;
             }
-            if (UpNextPlaybackList?.Count > 0)
+
+            if (currentItemIndex == -1)
             {
-                currentItemIndex = -1;
-                currentTrackNode = nextTrackNode;
-                UpNextPlaybackList.RemoveAt(0);
+                DisposeTrackNode(currentTrackNode);
+                currentTrackNode = null;
             }
             else
             {
-                previousItemIndex = currentItemIndex;
-                currentItemIndex = Methods.GetNextIndex(preparedItemIndex, OrderedPlaybackList.Count);
+                DisposeTrackNode(previousTrackNode);
                 previousTrackNode = currentTrackNode;
-                currentTrackNode = nextTrackNode;
-                currentTrackNode.Node.OutgoingGain = 1;
+                previousItemIndex = currentItemIndex;
             }
+
+            currentItemIndex = nextIndex;
+            currentTrackNode = nextTrackNode;
+            currentTrackNode.Node.OutgoingGain = 1;
             nextTrackNode = null;
-            //Updated
+            
             if (IsPlaying == true)
             {
                 currentTrackNode.Node.Start();
                 graphMonitor.Start();
             }
+
+            CurrentlyPlayingItemChanged?.Invoke(this, new() { CurrentTrack = currentTrackNode.Track });
+            PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void Pause()
         {
-            if (previousTrackNode is not null)  previousTrackNode.Node.Stop();
-            currentTrackNode.Node.Stop();
-            if (crossfadingTimer.Enabled)   crossfadingTimer.Stop();
-            isInCrossfasingPhase = false;
-            currentTrackNode.Node.OutgoingGain = 1;
-            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == false });
             graphMonitor.Stop();
-
+            if (isInCrossfasingPhase) LeaveCrossfadingPhase();
+            currentTrackNode.Node.Stop();
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = false });
         }
 
         public void Play()
         {
             currentTrackNode.Node.Start();
-            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == false });
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = true });
             graphMonitor.Start();
         }
 
@@ -525,34 +525,53 @@ namespace LyricEase.PlaybackEngine
         public async void Previous()
         {
             if (graphMonitor.Enabled) graphMonitor.Stop();
-            if(isInCrossfasingPhase == true)
+            if (isInCrossfasingPhase) LeaveCrossfadingPhase();
+
+            if (!IsDirectSwitchEnabled && currentTrackNode?.Node.Position.TotalSeconds > 3.0d)
             {
-                isInCrossfasingPhase = false;
-                crossfadingTimer.Stop();
-                previousTrackNode.Node.Stop();
-                currentTrackNode.Node.Stop();
+                currentTrackNode.Node.Seek(TimeSpan.Zero);
+                return;
             }
-            if (previousTrackNode is null)
-            {
-                ITrack previousNode = OriginalPlaybackList[PlaybackOrder[previousItemIndex]];
-                previousTrackNode = await CreateTrackNode(previousNode);
-            }
+
             if (nextTrackNode is not null)
             {
                 DisposeTrackNode(nextTrackNode);
+                nextTrackNode = null;
             }
 
-            nextTrackNode = currentTrackNode;
+            if (currentItemIndex == -1)
+            {
+                DisposeTrackNode(currentTrackNode);
+                currentTrackNode = null;
+            }
+            else
+            {
+                currentTrackNode.Node.Stop();
+                currentTrackNode.Node.Reset();
+                nextTrackNode = currentTrackNode;
+            }
+
+            ITrack previousTrack = OriginalPlaybackList[PlaybackOrder[previousItemIndex]];
+            if (previousTrackNode?.Track != previousTrack)
+            {
+                if (previousTrackNode is not null) DisposeTrackNode(previousTrackNode);
+                previousTrackNode = await CreateTrackNode(previousTrack);
+            }
+            previousTrackNode.Node.OutgoingGain = 1.0d;
             currentTrackNode = previousTrackNode;
+
             currentItemIndex = previousItemIndex;
-            previousItemIndex = Methods.GetPreviousIndex(currentItemIndex, OrderedPlaybackList.Count);
+            previousItemIndex = Methods.GetPreviousIndex(currentItemIndex, OriginalPlaybackList.Count);
+
             previousTrackNode = null;
-            currentTrackNode.Node.OutgoingGain = 1;
             if (IsPlaying == true)
             {
                 currentTrackNode.Node.Start();
                 graphMonitor.Start();
             }
+
+            CurrentlyPlayingItemChanged?.Invoke(this, new() { CurrentTrack = currentTrackNode.Track });
+            PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void RemoveTrack(ITrack targetTrack)
@@ -577,7 +596,11 @@ namespace LyricEase.PlaybackEngine
 
         public void Seek(TimeSpan TargetPosition)
         {
-            
+            if (isInCrossfasingPhase) LeaveCrossfadingPhase();
+            currentTrackNode.Node.Seek(TargetPosition);
+
+            TimeSpan duration = currentTrackNode.Node.Duration;
+            if ((duration - TargetPosition).TotalSeconds < 20.0d) currentTrackNode.IsUserInterruptingCrossfading = true;
         }
 
         public async void SkipTo(ITrack targetTrack)
@@ -624,7 +647,15 @@ namespace LyricEase.PlaybackEngine
 
         public void Stop()
         {
-            throw new NotImplementedException();
+            DisposeTrackNode(currentTrackNode); currentTrackNode = null;
+            DisposeTrackNode(previousTrackNode); previousTrackNode = null;
+            DisposeTrackNode(nextTrackNode); nextTrackNode = null;
+
+            OriginalPlaybackList?.Clear();
+            PlaybackOrder?.Clear();
+            UpNextPlaybackList?.Clear();
+
+            PlaybackEnded?.Invoke(this, EventArgs.Empty);
         }
 
         private sealed class TrackNode
