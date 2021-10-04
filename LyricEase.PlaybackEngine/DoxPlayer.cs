@@ -24,8 +24,13 @@ namespace LyricEase.PlaybackEngine
         private TrackNode nextTrackNode;
         private NodeStatus nextTrackNodeStatus = NodeStatus.Unavailable;
 
+        private System.Timers.Timer crossfadingTimer;
+        private bool isInCrossfasingPhase = false;
+        private double actualAudioCrossfadingLength;
+
         private int previousItemIndex = -1;
         private int currentItemIndex = -1;
+        private int preparedItemIndex = -1;
 
         private readonly SystemMediaTransportControls SMTC;
 
@@ -55,11 +60,14 @@ namespace LyricEase.PlaybackEngine
                 ApplicationSettingsExtension.SoundQuality = value;
             }
         }
+
         public PlaybackMode PlaybackMode
         {
             get => ApplicationSettingsExtension.PlaybackMode;
             set
             {
+                PlaybackMode oldValue = ApplicationSettingsExtension.PlaybackMode;
+                OnPlaybackModeChanged(oldValue, value);
                 ApplicationSettingsExtension.PlaybackMode = value;
             }
         }
@@ -94,7 +102,17 @@ namespace LyricEase.PlaybackEngine
 
         public List<int> PlaybackOrder { get; private set; } = new();
 
-        public List<ITrack> NextPlayingQueue => throw new NotImplementedException();
+        public List<ITrack> OrderedPlaybackList
+        {
+            get
+            {
+                int startIndex = Methods.GetNextIndex(currentItemIndex == -1 ? previousItemIndex : currentItemIndex, PlaybackOrder.Count);
+                List<int> extendedIndices = new(PlaybackOrder.TakeLast(PlaybackOrder.Count - startIndex));
+                if (startIndex > 0) extendedIndices.AddRange(PlaybackOrder.Take(startIndex));
+                if (extendedIndices.Count > 100) extendedIndices = extendedIndices.GetRange(0, 100);
+                return extendedIndices.Select(i => OriginalPlaybackList[i]).ToList();
+            }
+        }
 
         public event EventHandler<PlaybackStatusChangedEventArgs> PlaybackStatusChanged;
         public event EventHandler<EventArgs> PlaybackModeChanged;
@@ -181,6 +199,9 @@ namespace LyricEase.PlaybackEngine
             if (currentTrackNode is null) return;
             TimeSpan currentPosition = currentTrackNode.Node.Position;
             TimeSpan duration = currentTrackNode.Node.Duration;
+
+            PlaybackPositionChanged?.Invoke(this, new() { Current = currentPosition, Total = duration });
+
             if ((duration - currentPosition).TotalSeconds < 60.0d)
             {
                 if (nextTrackNodeStatus == NodeStatus.Unavailable)
@@ -188,7 +209,80 @@ namespace LyricEase.PlaybackEngine
                     PrepareNextNode();
                 }
             }
+            if (!isInCrossfasingPhase &&
+                IsAudioCrossfadingEnabled &&
+                nextTrackNodeStatus == NodeStatus.Available &&
+                currentTrackNode.IsNodeAvailableForCrossfading &&
+                nextTrackNode.IsNodeAvailableForCrossfading &&
+                !currentTrackNode.IsUserInterruptingCrossfading &&
+                (duration - currentPosition).TotalSeconds <= AudioCrossfadingLength &&
+                (duration - currentPosition).TotalSeconds > 3.0d)
+            {
+                EnterCrossfadingPhase();
+            }
+            if (isInCrossfasingPhase &&
+                currentPosition.TotalSeconds >= AudioCrossfadingLength)
+            {
+                LeaveCrossfadingPhase();
+            }
+        }
 
+        private void EnterCrossfadingPhase()
+        {
+            isInCrossfasingPhase = true;
+            if (currentTrackNode is null) return;
+            TimeSpan currentPosition = currentTrackNode.Node.Position;
+            TimeSpan duration = currentTrackNode.Node.Duration;
+
+            actualAudioCrossfadingLength = (duration - currentPosition).TotalSeconds;
+
+            if (crossfadingTimer is not null) crossfadingTimer.Dispose();
+            crossfadingTimer = new() { Interval = graphMonitorInterval, AutoReset = true };
+            crossfadingTimer.Elapsed += (_1, _2) => UpdateCrossfadingProgress();
+
+            if (previousTrackNode is not null)
+            {
+                DisposeTrackNode(previousTrackNode);
+                previousTrackNode = null;
+            }
+            previousTrackNode = currentTrackNode;
+            currentTrackNode = nextTrackNode;
+            nextTrackNode = null;
+
+            if (currentItemIndex != -1) previousItemIndex = currentItemIndex;
+            currentItemIndex = preparedItemIndex;
+
+            currentTrackNode.Node.OutgoingGain = 0.0d;
+            currentTrackNode.Node.Start();
+
+            crossfadingTimer.Start();
+        }
+
+        private void LeaveCrossfadingPhase()
+        {
+            isInCrossfasingPhase = false;
+
+            if (crossfadingTimer.Enabled) crossfadingTimer.Stop();
+            crossfadingTimer.Dispose();
+
+            currentTrackNode.Node.OutgoingGain = 1.0d;
+            
+            previousTrackNode.Node.Stop();
+        }
+
+        private void UpdateCrossfadingProgress()
+        {
+            if (currentTrackNode is null || previousTrackNode is null) return;
+            TimeSpan currentPosition = currentTrackNode.Node.Position;
+
+            double x = currentPosition.TotalSeconds / actualAudioCrossfadingLength;
+            if (x < 0.0d) x = 0.0d;
+            if (x > 1.0d) x = 1.0d;
+
+            double quad = x < 0.5d ? 2 * x * x : -2 * x * x + 4 * x - 1;
+
+            currentTrackNode.Node.OutgoingGain = quad;
+            previousTrackNode.Node.OutgoingGain = 1 - quad;
         }
 
         private async void PrepareNextNode(int retryTime = 0)
@@ -204,6 +298,7 @@ namespace LyricEase.PlaybackEngine
                 ITrack nextTrack;
                 if (UpNextPlaybackList?.Count > 0)
                 {
+                    preparedItemIndex = -1;
                     nextTrack = UpNextPlaybackList[0];
                     UpNextPlaybackList.RemoveAt(0);
                 }
@@ -212,6 +307,7 @@ namespace LyricEase.PlaybackEngine
                     int nextIndex = Methods.GetNextIndex(
                         currentItemIndex == -1 ? previousItemIndex : currentItemIndex,
                         OriginalPlaybackList.Count);
+                    preparedItemIndex = nextIndex;
                     nextTrack = OriginalPlaybackList[PlaybackOrder[nextIndex]];
                 }
                 nextTrackNode = await CreateTrackNode(nextTrack);
@@ -221,6 +317,38 @@ namespace LyricEase.PlaybackEngine
                 if (resourceReloadTimer is not null) resourceReloadTimer.Dispose();
                 resourceReloadTimer = new() { AutoReset = false, Interval = 3000 };
                 resourceReloadTimer.Elapsed += (_1, _2) => PrepareNextNode(retryTime + 1);
+            }
+        }
+
+        private void OnPlaybackModeChanged(PlaybackMode oldValue, PlaybackMode newValue)
+        {
+            if (oldValue == newValue) return;
+            if (OriginalPlaybackList?.Count > 0 || UpNextPlaybackList?.Count > 0)
+            {
+                // Only when Shuffle is involved we need to make changes to playback order and indices
+                if (oldValue == PlaybackMode.Shuffle || newValue == PlaybackMode.Shuffle)
+                {
+                    int currentTrack = PlaybackOrder[currentItemIndex];
+
+                    PlaybackOrder = newValue == PlaybackMode.Shuffle ?
+                        Methods.GenerateShuffledSequence(OriginalPlaybackList.Count) :
+                        Methods.GenerateAscendingSequence(OriginalPlaybackList.Count);
+
+                    if (currentItemIndex == -1)
+                    {
+                        previousItemIndex = (OriginalPlaybackList?.Count ?? 0) - 1;
+                    }
+                    else
+                    {
+                        currentItemIndex = oldValue == PlaybackMode.Shuffle ?
+                            currentTrack :
+                            PlaybackOrder.IndexOf(currentTrack);
+                        if (OriginalPlaybackList?.Count <= 0) previousItemIndex = -1;
+                        else previousItemIndex = Methods.GetPreviousIndex(currentItemIndex, OriginalPlaybackList.Count);
+                    }
+                    PlaybackQueueUpdated?.Invoke(this, EventArgs.Empty);
+                }
+                PlaybackModeChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -238,7 +366,6 @@ namespace LyricEase.PlaybackEngine
 
         private void DoxPlayer_PlaybackPositionChanged(object sender, PlaybackPositionChangedEventArgs e)
         {
-            throw new NotImplementedException();
         }
 
         private void DoxePlayer_PlaybackStatusChanged(object sender, PlaybackStatusChangedEventArgs e)

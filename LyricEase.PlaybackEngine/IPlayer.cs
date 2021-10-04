@@ -23,7 +23,7 @@ namespace LyricEase.PlaybackEngine
         List<ITrack> OriginalPlaybackList { get; }
         List<ITrack> UpNextPlaybackList { get; }
         List<int> PlaybackOrder { get; }
-        List<ITrack> NextPlayingQueue { get; }
+        List<ITrack> OrderedPlaybackList { get; }
         
         void PlayCollection(IEnumerable<ITrack> Items, ITrack StartingItem, object PlaybackSource);
         void AddToUpNext(IEnumerable<ITrack> Items);
