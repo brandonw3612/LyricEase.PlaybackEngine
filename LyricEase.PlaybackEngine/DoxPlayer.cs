@@ -1,4 +1,4 @@
-﻿using LyricEase.PlaybackEngine.Models;
+﻿using LyricEase.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,7 @@ using Windows.Media;
 using Windows.Media.Audio;
 using Windows.Media.Core;
 
-namespace LyricEase.PlaybackEngine
+namespace LyricEase
 {
     internal sealed class DoxPlayer : IPlayer
     {

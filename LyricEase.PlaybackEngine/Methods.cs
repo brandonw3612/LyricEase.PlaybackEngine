@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LyricEase.PlaybackEngine
+namespace LyricEase
 {
     internal static class Methods
     {

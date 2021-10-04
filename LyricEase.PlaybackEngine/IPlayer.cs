@@ -1,13 +1,13 @@
-﻿using LyricEase.PlaybackEngine.Models;
+﻿using LyricEase.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LyricEase.PlaybackEngine
+namespace LyricEase
 {
-    interface IPlayer
+    public interface IPlayer
     {
         double Volume { get; set; }
         bool IsDirectSwitchEnabled { get; set; }

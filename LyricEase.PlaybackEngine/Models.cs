@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Windows.Media.Core;
 
-namespace LyricEase.PlaybackEngine.Models
+namespace LyricEase.Models
 {
     public enum SoundQuality { Normal, High, VeryHigh, Lossless }
 

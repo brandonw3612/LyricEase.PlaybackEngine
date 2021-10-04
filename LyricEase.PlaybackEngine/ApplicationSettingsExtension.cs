@@ -1,4 +1,4 @@
-﻿using LyricEase.PlaybackEngine.Models;
+﻿using LyricEase.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Windows.Storage;
 
-namespace LyricEase.PlaybackEngine
+namespace LyricEase
 {
     internal static class ApplicationSettingsExtension
     {
