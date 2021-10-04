@@ -414,8 +414,14 @@ namespace LyricEase.PlaybackEngine
 
         public async void Next()
         {
-            graphMonitor.Stop();
-
+            if (graphMonitor.Enabled) graphMonitor.Stop();
+            if (isInCrossfasingPhase == true)
+            {
+                isInCrossfasingPhase = false;
+                crossfadingTimer.Stop();
+                previousTrackNode.Node.Stop();
+                currentTrackNode.Node.Stop();
+            }
             ITrack nextTrack = UpNextPlaybackList?.Count > 0 ? UpNextPlaybackList[0] :
                 OriginalPlaybackList[PlaybackOrder[
                 Methods.GetNextIndex(currentItemIndex == -1 ? previousItemIndex : currentItemIndex,
@@ -430,12 +436,36 @@ namespace LyricEase.PlaybackEngine
             {
                 DisposeTrackNode(previousTrackNode);
             }
-            graphMonitor.Start();
+            if (UpNextPlaybackList?.Count > 0)
+            {
+                currentItemIndex = -1;
+                currentTrackNode = nextTrackNode;
+                UpNextPlaybackList.RemoveAt(0);
+            }
+            else
+            {
+                previousItemIndex = currentItemIndex;
+                currentItemIndex = Methods.GetNextIndex(preparedItemIndex, OrderedPlaybackList.Count);
+                previousTrackNode = currentTrackNode;
+                currentTrackNode = nextTrackNode;
+                currentTrackNode.Node.OutgoingGain = 1;
+            }
+            nextTrackNode = null;
+            //Updated
+            if (IsPlaying == true)
+            {
+                currentTrackNode.Node.Start();
+                graphMonitor.Start();
+            }
         }
 
         public void Pause()
         {
+            if (previousTrackNode is not null)  previousTrackNode.Node.Stop();
             currentTrackNode.Node.Stop();
+            if (crossfadingTimer.Enabled)   crossfadingTimer.Stop();
+            isInCrossfasingPhase = false;
+            currentTrackNode.Node.OutgoingGain = 1;
             PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == false });
             graphMonitor.Stop();
 
@@ -444,7 +474,7 @@ namespace LyricEase.PlaybackEngine
         public void Play()
         {
             currentTrackNode.Node.Start();
-            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == true });
+            PlaybackStatusChanged?.Invoke(this, new() { IsPlaying = IsPlaying == false });
             graphMonitor.Start();
         }
 
@@ -492,9 +522,37 @@ namespace LyricEase.PlaybackEngine
                 Pause();
         }
 
-        public void Previous()
+        public async void Previous()
         {
-            throw new NotImplementedException();
+            if (graphMonitor.Enabled) graphMonitor.Stop();
+            if(isInCrossfasingPhase == true)
+            {
+                isInCrossfasingPhase = false;
+                crossfadingTimer.Stop();
+                previousTrackNode.Node.Stop();
+                currentTrackNode.Node.Stop();
+            }
+            if (previousTrackNode is null)
+            {
+                ITrack previousNode = OriginalPlaybackList[PlaybackOrder[previousItemIndex]];
+                previousTrackNode = await CreateTrackNode(previousNode);
+            }
+            if (nextTrackNode is not null)
+            {
+                DisposeTrackNode(nextTrackNode);
+            }
+
+            nextTrackNode = currentTrackNode;
+            currentTrackNode = previousTrackNode;
+            currentItemIndex = previousItemIndex;
+            previousItemIndex = Methods.GetPreviousIndex(currentItemIndex, OrderedPlaybackList.Count);
+            previousTrackNode = null;
+            currentTrackNode.Node.OutgoingGain = 1;
+            if (IsPlaying == true)
+            {
+                currentTrackNode.Node.Start();
+                graphMonitor.Start();
+            }
         }
 
         public void RemoveTrack(ITrack targetTrack)
@@ -519,7 +577,7 @@ namespace LyricEase.PlaybackEngine
 
         public void Seek(TimeSpan TargetPosition)
         {
-            throw new NotImplementedException();
+            
         }
 
         public async void SkipTo(ITrack targetTrack)
